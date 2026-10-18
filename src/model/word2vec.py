@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import numpy as np
-from utils import sigmoid, learning_rate_decay
+from utils import sigmoid, learning_rate_decay, NegativeSampler
 import time
 from tqdm import tqdm
 from dataset.vocabulary import Vocabulary
@@ -165,7 +165,7 @@ class MyWord2Vec:
         """
 
         num_tokens = len(train_tokens)
-        vocab_size = self.vocab_size
+        sampler = NegativeSampler(noise_dist)
         loss_history: list[tuple[int, float]] = []  # (global_step, avg_loss)
         epoch_losses: list[float] = []
 
@@ -202,12 +202,12 @@ class MyWord2Vec:
 
                 for pos_idx in pos_context_idxs:
                     # sample negatives examples 
-                    neg = np.random.choice(vocab_size, size=self.k, p=noise_dist)
+                    neg = sampler.sample(self.k)
 
                     # we should re-draw negative samples until we have no overlap with the positive context word and the centre word
                     mask = (neg == pos_idx) | (neg == centre_idx)
                     while np.any(mask):
-                        neg[mask] = np.random.choice(vocab_size, size=mask.sum(), p=noise_dist)
+                        neg[mask] = sampler.sample(mask.sum())
                         mask = (neg == pos_idx) | (neg == centre_idx)
 
 

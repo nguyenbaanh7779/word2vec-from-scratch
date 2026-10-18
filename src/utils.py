@@ -14,6 +14,27 @@ def build_noise_distribution(freqs: list[int], power: float = 0.75) -> np.ndarra
     arr = np.array(freqs, dtype=np.float64) ** power
     return arr / arr.sum()
 
+class NegativeSampler:
+    """
+    Draws negative samples from the noise distribution in large batches.
+    np.random.choice with p= rebuilds the cumulative distribution over the whole vocabulary on every call (O(V)),
+    which dominated the training time when called once per (centre, context) pair. Drawing many i.i.d. samples
+    at once and consuming them in order yields samples from the same distribution at a fraction of the cost.
+    """
+    def __init__(self, noise_dist: np.ndarray, buffer_size: int = 1_000_000) -> None:
+        self.noise_dist = noise_dist
+        self.buffer_size = buffer_size
+        self._buffer = np.empty(0, dtype=np.int64)
+        self._pos = 0
+
+    def sample(self, n: int) -> np.ndarray:
+        if self._pos + n > len(self._buffer):
+            self._buffer = np.random.choice(len(self.noise_dist), size=max(self.buffer_size, n), p=self.noise_dist)
+            self._pos = 0
+        out = self._buffer[self._pos:self._pos + n].copy()  # copy: callers modify the result in place
+        self._pos += n
+        return out
+
 def sigmoid(x: np.ndarray) -> np.ndarray:
     "Sigmoid function"
     return np.where(
