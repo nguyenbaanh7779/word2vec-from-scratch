@@ -49,21 +49,28 @@ PCA_GROUPS = {
 
 N_RANDOM_PAIRS = 10_000
 
+# The random-pair baseline is drawn from the most frequent words only. Rare words receive few updates and
+# drift along a shared direction, so pairs of rare words are very similar to each other (0.93 on average in
+# the 1M-token demo, against 0.61 among the 2,000 most frequent words). Since rare words make up most of the
+# vocabulary, an all-vocabulary baseline is inflated and does not match the frequent words used in the queries.
+N_BASELINE_WORDS = 2_000
+
 
 def normalise(W: np.ndarray) -> np.ndarray:
     norms = np.linalg.norm(W, axis=1, keepdims=True)
     return W / np.where(norms == 0, 1.0, norms)
 
 
-def random_pair_cosines(model: MyWord2Vec, rng: np.random.Generator) -> np.ndarray:
+def random_pair_cosines(model: MyWord2Vec, rng: np.random.Generator, n_words: int | None = None) -> np.ndarray:
     """
-    Cosine similarity of random pairs of distinct vocabulary words.
+    Cosine similarity of random pairs of distinct words among the n_words most frequent ones (all words if None).
     Raw cosine values are hard to read on their own (SGNS embeddings tend to share a common direction, so
     even unrelated words can score high); this distribution is the reference a word pair is compared against.
     """
     W = normalise(model.W_in)
-    i = rng.integers(0, len(W), N_RANDOM_PAIRS)
-    j = rng.integers(0, len(W), N_RANDOM_PAIRS)
+    n = len(W) if n_words is None else min(n_words, len(W))  # the vocabulary is sorted by decreasing frequency
+    i = rng.integers(0, n, N_RANDOM_PAIRS)
+    j = rng.integers(0, n, N_RANDOM_PAIRS)
     keep = i != j
     return np.sum(W[i[keep]] * W[j[keep]], axis=1)
 
@@ -71,7 +78,8 @@ def random_pair_cosines(model: MyWord2Vec, rng: np.random.Generator) -> np.ndarr
 def evaluate_model(model: MyWord2Vec, seed: int) -> dict:
     vocab = model.vocab.word2idx
     W = normalise(model.W_in)
-    random_cos = random_pair_cosines(model, np.random.default_rng(seed))
+    random_cos = random_pair_cosines(model, np.random.default_rng(seed), N_BASELINE_WORDS)
+    random_cos_all = random_pair_cosines(model, np.random.default_rng(seed))
 
     neighbours = {
         q: [(w, round(s, 3)) for w, s in model.get_most_similar(q, top_k=8)] if q in vocab else None
@@ -98,7 +106,10 @@ def evaluate_model(model: MyWord2Vec, seed: int) -> dict:
 
     answerable = [x for x in analogies if x["top5"] is not None]
     return {
-        "random_pair_cosine": {"mean": round(float(random_cos.mean()), 3), "std": round(float(random_cos.std()), 3)},
+        "random_pair_cosine": {
+            f"top_{N_BASELINE_WORDS}": {"mean": round(float(random_cos.mean()), 3), "std": round(float(random_cos.std()), 3)},
+            "all_words": {"mean": round(float(random_cos_all.mean()), 3), "std": round(float(random_cos_all.std()), 3)},
+        },
         "neighbours": neighbours,
         "pairs": pairs,
         "analogies": analogies,
@@ -159,10 +170,13 @@ def format_markdown(run_name: str, trained: dict, untrained: dict) -> str:
         t, u = trained["neighbours"][q], untrained["neighbours"][q]
         lines.append(f"| {q} | {'OOV' if t is None else ', '.join(w for w, _ in t)} | {'OOV' if u is None else ', '.join(w for w, _ in u[:3])} |")
 
+    def fmt_dist(d): return f"{d['mean']:.3f} ± {d['std']:.3f}"
+    top = f"top_{N_BASELINE_WORDS}"
     rt, ru = trained["random_pair_cosine"], untrained["random_pair_cosine"]
     lines += ["", "## Cosine similarity", "",
-              f"Random word pairs: trained {rt['mean']:.3f} ± {rt['std']:.3f}, untrained {ru['mean']:.3f} ± {ru['std']:.3f}. "
-              "pN: the pair is more similar than N% of random pairs.", "",
+              f"Random pairs among the {N_BASELINE_WORDS:,} most frequent words: trained {fmt_dist(rt[top])}, untrained {fmt_dist(ru[top])}. "
+              f"pN: the pair is more similar than N% of these random pairs. "
+              f"(Random pairs over the whole vocabulary: trained {fmt_dist(rt['all_words'])}, inflated by rare words.)", "",
               "| Pair | Trained | Untrained |", "|---|---|---|"]
     for t, u in zip(trained["pairs"], untrained["pairs"]):
         lines.append(f"| {t['pair'][0]} – {t['pair'][1]} | {fmt_cos(t)} | {fmt_cos(u)} |")
