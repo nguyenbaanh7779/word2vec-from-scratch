@@ -20,6 +20,10 @@ word2vec-from-scratch/
 ├─ data/                    # text8 download cache (not tracked)
 ├─ output/                  # Saved runs: embeddings, loss curves, config.json (not tracked)
 ├─ upstream/                # Upstream author's submission notes, gradient derivation (implementation.pdf), Slurm jobs and logs
+├─ experiments/            # run_{smoke_test,demo,final}.sh, make_report_assets.py (figures/tables for report and slides)
+├─ report/                 # LaTeX report (main.tex, main.pdf); generated/ and figures/ come from make_report_assets.py
+├─ slides/                 # Beamer slides (main.tex, main.pdf) and timed speaker notes
+├─ demo/demo.py            # Live demo: neighbours, cosine percentile, analogies on a trained run
 ├─ src/
 │  ├─ config.py             # Paths and directory bootstrap
 │  ├─ utils.py              # Tokeniser, noise dist, negative sampler, sigmoid, LR decay
@@ -29,8 +33,10 @@ word2vec-from-scratch/
 │  │  └─ training.py        # Data prep pipeline
 │  ├─ model/
 │  │  └─ word2vec.py        # SGNS model, training loop, eval utils
-│  └─ training/
-│     └─ train.py           # Experiment runner and logging
+│  ├─ training/
+│  │  └─ train.py           # Experiment runner and logging
+│  └─ evaluation/
+│     └─ evaluate.py        # Fixed queries, untrained baseline, cosine percentiles, PCA
 └─ eval_embeddings.ipynb    # Inspect embeddings/analogies/loss
 ```
 
@@ -59,6 +65,16 @@ Outputs land in `output/<run_name>/`:
 - `config.json`: all hyperparameters, vocabulary size, tokens after subsampling, runtime, loss history, Python/NumPy versions and the git commit
 
 The number of training steps is roughly `epochs × tokens after subsampling × (max_window + 1)`; subsampling keeps about 65% of the tokens. Training runs at about 45k steps/s on a single core of an Apple M5, so 1M tokens × 3 epochs takes a few minutes.
+
+## Evaluation, report and slides
+
+```bash
+python run.py evaluate --run-name final          # writes evaluation.json/.md and a PCA figure to output/final/
+python experiments/make_report_assets.py         # figures, tables and number macros for report/ and slides/ (needs demo and final runs)
+cd report && xelatex main && bibtex main && xelatex main && xelatex main
+cd slides && xelatex main && xelatex main
+python demo/demo.py                              # interactive: WORD | WORD WORD | WORD - WORD + WORD
+```
 
 ## Notebook usage
 

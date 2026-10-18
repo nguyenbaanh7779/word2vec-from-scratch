@@ -884,20 +884,20 @@ Before considering the project complete:
 -   [x] Rename/customize project metadata (README credits upstream and lists changes).
 -   [x] Confirm environment runs (conda-forge env, Python 3.11).
 -   [x] Run smoke test.
--   [ ] Run main experiment.
+-   [x] Run main experiment.
 -   [x] Save exact hyperparameters (`config.json`, `--seed`).
 -   [x] Save loss curve.
 -   [x] Save embeddings.
 -   [x] Nearest-neighbour, cosine-similarity and analogy queries
         (`python run.py evaluate`).
 -   [x] Generate PCA visualization.
--   [ ] Record final results.
--   [ ] Create `report/main.tex`.
--   [ ] Create `report/references.bib`.
--   [ ] Create Beamer slides.
--   [ ] Prepare demo script.
+-   [x] Record final results.
+-   [x] Create `report/main.tex`.
+-   [x] Create `report/references.bib`.
+-   [x] Create Beamer slides.
+-   [x] Prepare demo script.
 -   [ ] Re-run final experiment from a clean environment if possible.
--   [ ] Check that all reported numbers come from your final experiment
+-   [x] Check that all reported numbers come from your final experiment
         (`config.json` records the git commit of each run).
 
 ------------------------------------------------------------------------
