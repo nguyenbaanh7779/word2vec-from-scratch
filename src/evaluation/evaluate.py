@@ -121,12 +121,31 @@ def evaluate_model(model: MyWord2Vec, seed: int) -> dict:
     }
 
 
+# Figure styling: validated categorical slots 1-3 plus a neutral ink for the 4th group (four hues cannot all be
+# told apart in a scatter), and a distinct marker per group so identity never relies on colour alone
+GROUP_STYLES = [("#2a78d6", "o"), ("#eb6834", "s"), ("#1baf7a", "^"), ("#52514e", "D")]
+INK, INK_MUTED, GRID = "#0b0b0b", "#52514e", "#e4e3df"
+
+
+def style_axes(ax) -> None:
+    "Recessive axes: no top/right spines, light grid behind the data, secondary ink for ticks and labels"
+    for side in ("top", "right"):
+        ax.spines[side].set_visible(False)
+    for side in ("left", "bottom"):
+        ax.spines[side].set_color(INK_MUTED)
+    ax.tick_params(colors=INK_MUTED, labelsize=8)
+    ax.xaxis.label.set_color(INK_MUTED)
+    ax.yaxis.label.set_color(INK_MUTED)
+    ax.grid(True, color=GRID, linewidth=0.8)
+    ax.set_axisbelow(True)
+
+
 def plot_pca(models: dict[str, MyWord2Vec], out_path) -> None:
     """
     2D PCA of the PCA_GROUPS words, one panel per model.
     Vectors are L2-normalised (as for cosine similarity) and centred on the plotted words before the SVD.
     """
-    fig, axes = plt.subplots(1, len(models), figsize=(6 * len(models), 5))
+    fig, axes = plt.subplots(1, len(models), figsize=(5.2 * len(models), 4.4))
     for ax, (title, model) in zip(np.atleast_1d(axes), models.items()):
         vocab = model.vocab.word2idx
         words, groups = [], []
@@ -142,19 +161,20 @@ def plot_pca(models: dict[str, MyWord2Vec], out_path) -> None:
         coords = X @ Vt[:2].T
         explained = S[:2] ** 2 / np.sum(S ** 2)
 
-        for group in PCA_GROUPS:
+        for group, (color, marker) in zip(PCA_GROUPS, GROUP_STYLES):
             idx = [i for i, g in enumerate(groups) if g == group]
-            ax.scatter(coords[idx, 0], coords[idx, 1], label=group, s=25)
+            ax.scatter(coords[idx, 0], coords[idx, 1], label=group, s=40, color=color, marker=marker,
+                       edgecolors="white", linewidths=1.0, zorder=3)
         for (x, y), w in zip(coords, words):
-            ax.annotate(w, (x, y), fontsize=8, xytext=(3, 3), textcoords="offset points")
-        ax.set_title(title)
-        ax.set_xlabel(f"PC1 ({explained[0]:.0%} of variance)")
-        ax.set_ylabel(f"PC2 ({explained[1]:.0%} of variance)")
-        ax.grid(True, alpha=0.3)
-        ax.legend(fontsize=8)
+            ax.annotate(w, (x, y), fontsize=7.5, color=INK, xytext=(3, 3), textcoords="offset points")
+        style_axes(ax)
+        ax.set_title(title, color=INK, fontsize=10)
+        ax.set_xlabel(f"PC1 ({explained[0]:.0%} of variance)", fontsize=9)
+        ax.set_ylabel(f"PC2 ({explained[1]:.0%} of variance)", fontsize=9)
+        ax.legend(fontsize=7.5, frameon=False, labelcolor=INK)
 
     fig.tight_layout()
-    fig.savefig(out_path, dpi=150)
+    fig.savefig(out_path, dpi=200)
     plt.close(fig)
 
 
@@ -194,7 +214,8 @@ def format_markdown(run_name: str, trained: dict, untrained: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
-def evaluate(run_name: str):
+def load_run_models(run_name: str) -> tuple[MyWord2Vec, MyWord2Vec, int]:
+    "The trained model of a run, the same model before training, and the run's seed"
     run_dir = OUTPUT_DIR / run_name
     model = MyWord2Vec.load(str(run_dir / f"embeddings_{run_name}.npz"))
     seed = json.loads((run_dir / "config.json").read_text())["hyperparameters"]["seed"]
@@ -203,6 +224,12 @@ def evaluate(run_name: str):
     # initialises W_in with no other NumPy draw in between (subsampling uses the `random` module)
     np.random.seed(seed)
     untrained = MyWord2Vec(vocab=model.vocab, embed_dim=model.embed_dim, k=model.k, start_lr=model.start_lr)
+    return model, untrained, seed
+
+
+def evaluate(run_name: str):
+    run_dir = OUTPUT_DIR / run_name
+    model, untrained, seed = load_run_models(run_name)
 
     results = {"trained": evaluate_model(model, seed), "untrained": evaluate_model(untrained, seed)}
     (run_dir / "evaluation.json").write_text(json.dumps(results, indent=2))
