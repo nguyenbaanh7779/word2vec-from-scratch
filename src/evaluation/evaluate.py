@@ -146,6 +146,7 @@ def plot_pca(models: dict[str, MyWord2Vec], out_path) -> None:
     Vectors are L2-normalised (as for cosine similarity) and centred on the plotted words before the SVD.
     """
     fig, axes = plt.subplots(1, len(models), figsize=(5.2 * len(models), 4.4))
+    panels = []
     for ax, (title, model) in zip(np.atleast_1d(axes), models.items()):
         vocab = model.vocab.word2idx
         words, groups = [], []
@@ -165,15 +166,29 @@ def plot_pca(models: dict[str, MyWord2Vec], out_path) -> None:
             idx = [i for i, g in enumerate(groups) if g == group]
             ax.scatter(coords[idx, 0], coords[idx, 1], label=group, s=40, color=color, marker=marker,
                        edgecolors="white", linewidths=1.0, zorder=3)
-        for (x, y), w in zip(coords, words):
-            ax.annotate(w, (x, y), fontsize=7.5, color=INK, xytext=(3, 3), textcoords="offset points")
         style_axes(ax)
         ax.set_title(title, color=INK, fontsize=10)
         ax.set_xlabel(f"PC1 ({explained[0]:.0%} of variance)", fontsize=9)
         ax.set_ylabel(f"PC2 ({explained[1]:.0%} of variance)", fontsize=9)
         ax.legend(fontsize=7.5, frameon=False, labelcolor=INK)
+        panels.append((ax, coords, words))
 
     fig.tight_layout()
+
+    # label as many points as possible without overlapping text or the legend: in tight clusters only some
+    # words are named, the group is still given by colour, marker and legend
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    for ax, coords, words in panels:
+        placed = [ax.get_legend().get_window_extent(renderer)]
+        for (x, y), w in zip(coords, words):
+            label = ax.annotate(w, (x, y), fontsize=7.5, color=INK, xytext=(3, 3), textcoords="offset points")
+            box = label.get_window_extent(renderer).expanded(1.05, 1.1)
+            if any(box.overlaps(other) for other in placed):
+                label.remove()
+            else:
+                placed.append(box)
+
     fig.savefig(out_path, dpi=200)
     plt.close(fig)
 
