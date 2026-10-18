@@ -355,9 +355,14 @@ cosine_similarity(word_a, word_b)
 ```
 
 Compare several intuitive pairs **and unrelated control pairs**, and
-report each value as a percentile of the cosine of random word pairs.
-Raw values are inflated: neighbours in the upstream embeddings all score
-0.88–0.96, and random pairs average 0.98 in the 100K-token smoke test.
+report each value as a percentile of the cosine of random pairs drawn
+from the 2,000 most frequent words. Raw values are inflated: neighbours
+in the upstream embeddings all score 0.88–0.96, and in the 1M-token demo
+random pairs average 0.84 over the whole vocabulary, because rare words
+barely move from a shared direction (0.93 among words seen ≤ 19 times,
+0.61 among the 2,000 most frequent). The query words are all frequent,
+so the baseline must be too. This rare-word effect is itself worth a
+sentence in the Limitations section.
 
 Example:
 
@@ -443,7 +448,7 @@ Use actual outputs from the final experiment.
 
 Use:
 
--   cosine similarity, reported against the random-pair distribution;
+-   cosine similarity, reported against random pairs of frequent words;
 -   analogy queries, reported as the rank of the expected answer
     (hit@1 / hit@5).
 
