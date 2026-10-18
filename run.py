@@ -22,10 +22,16 @@ def train(
     epochs: int = typer.Option(1, help="Number of training epochs"),
     max_window: int = typer.Option(5, help="Maximum context window size"),
     n_negatives: int = typer.Option(5, help="Number of negative samples to draw per (centre, context) pair"),
-    max_tokens: int = typer.Option(1_000_000, help="Number of tokens from text8 to use for training")
+    max_tokens: int = typer.Option(1_000_000, help="Number of tokens from text8 to use for training"),
+    min_count: int = typer.Option(5, help="Minimum frequency for a word to be included in the vocabulary"),
+    subsample_t: float = typer.Option(1e-3, help="Threshold t for Mikolov subsampling of frequent words"),
+    start_lr: float = typer.Option(0.025, help="Initial learning rate"),
+    lr_min: float = typer.Option(1e-4, help="Floor of the linear learning-rate decay"),
+    seed: int = typer.Option(42, help="Random seed for weight init, subsampling, window sizes and negative sampling")
 ):
     from training.train import train
-    train(run_name, embed_dim, epochs, max_window, n_negatives, max_tokens)
+    train(run_name, embed_dim, epochs, max_window, n_negatives, max_tokens,
+          min_count=min_count, subsample_t=subsample_t, start_lr=start_lr, lr_min=lr_min, seed=seed)
 
 
 if __name__ == "__main__":
