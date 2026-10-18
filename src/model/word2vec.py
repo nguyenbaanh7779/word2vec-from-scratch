@@ -150,25 +150,29 @@ class MyWord2Vec:
               epochs: int   = 5, # number of epochs to train for
               lr_min: float = 1e-4, # minimum learning rate for linear decay
               report_every: int  = 500_000
-                        ) -> list[tuple[int, float]]:
+                        ) -> tuple[list[tuple[int, float]], list[float]]:
         """
         Training loop
 
         - For each centre word in the training corpus, we sample a random window size W, and we consider the W words to the left and W words to the right as positive context words.
         - For each (centre, context) pair we then sample K negative examples from the noise distribution
         - We then perform a training step with the centre word, one positive context word and K negative samples, and we update the embeddings in-place with stochastic gradient descent.
-        
-        Returns a list of (global_step, avg_loss) tuples for each report_every steps.
+
+        Returns:
+        - loss_history: (global_step, avg_loss) tuples every report_every steps, where avg_loss is the mean loss
+          over the steps since the previous report (not a running average since the start of the epoch)
+        - epoch_losses: the mean loss of each epoch
         """
 
         num_tokens = len(train_tokens)
         vocab_size = self.vocab_size
         loss_history: list[tuple[int, float]] = []  # (global_step, avg_loss)
+        epoch_losses: list[float] = []
 
 
         # for the learning rate decay we need an estimate of the total number of training steps
         # as w is drawn uniformly from 1 to max_window, the average window size is (max_window + 1) / 2
-        # for each centre word we have on average max_window context words
+        # for each centre word we have on average 2 * (max_window + 1) / 2 = max_window + 1 context words
         approx_total_steps = epochs * num_tokens * (max_window + 1)
 
         print(f"Estimated training steps: {approx_total_steps:,} (epochs={epochs}, tokens={num_tokens:,}, max_window={max_window})")
@@ -179,6 +183,8 @@ class MyWord2Vec:
 
         global_step = 0
         total_loss = 0.0
+        window_loss = 0.0  # loss accumulated since the previous report
+        window_steps = 0
 
         for epoch in tqdm(range(epochs), desc="Epochs"):
             epoch_loss = 0.0
@@ -213,24 +219,30 @@ class MyWord2Vec:
 
 
                     epoch_loss += loss
+                    window_loss += loss
                     global_step += 1
                     epoch_steps += 1
+                    window_steps += 1
 
                     if global_step % report_every == 0:
                         elapsed = time.time() - t0
-                        avg_loss = epoch_loss / max(1, epoch_steps)
+                        avg_loss = window_loss / window_steps
                         loss_history.append((global_step, avg_loss))
-                        print(f"Step {global_step}, Avg Loss: {avg_loss:.4f}, Elapsed: {elapsed:.2f}s")
+                        window_loss, window_steps = 0.0, 0
+                        print(f"Step {global_step}, Avg Loss (last {report_every:,} steps): {avg_loss:.4f}, Elapsed: {elapsed:.2f}s")
 
             avg_loss = epoch_loss / max(1, epoch_steps)
-            loss_history.append((global_step, avg_loss))
+            epoch_losses.append(avg_loss)
             print(f"Epoch {epoch+1}/{epochs} done! avg loss {avg_loss:.4f}")
 
             total_loss += epoch_loss
 
+        # flush the last, partial window so that short runs still record at least one point
+        if window_steps > 0:
+            loss_history.append((global_step, window_loss / window_steps))
 
         print(f"Training completed in {time.time() - t0:.2f}s, Total Loss: {total_loss:.4f}")
-        return loss_history
+        return loss_history, epoch_losses
 
 
     def save_embeddings(self, file_path):

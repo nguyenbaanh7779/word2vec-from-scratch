@@ -26,7 +26,8 @@ def get_git_state() -> dict:
 
 
 def train(run_name: str, embed_dim: int = 100, epochs: int = 1, max_window: int = 5, n_negatives: int = 5, max_tokens: int | None = 1_000_000,
-          min_count: int = 5, subsample_t: float = 1e-3, start_lr: float = 0.025, lr_min: float = 1e-4, seed: int = 42):
+          min_count: int = 5, subsample_t: float = 1e-3, start_lr: float = 0.025, lr_min: float = 1e-4,
+          report_every: int = 500_000, seed: int = 42):
     print("Training the model...")
 
     run_dir = OUTPUT_DIR / run_name
@@ -53,12 +54,13 @@ def train(run_name: str, embed_dim: int = 100, epochs: int = 1, max_window: int 
 
     # train the model
     t0 = time.time()
-    loss_history = model.train(
+    loss_history, epoch_losses = model.train(
         train_tokens = tokens,
         noise_dist = noise_dist,
         max_window = max_window,
         epochs = epochs,
-        lr_min = lr_min
+        lr_min = lr_min,
+        report_every = report_every
     )
     train_time = time.time() - t0
 
@@ -73,10 +75,10 @@ def train(run_name: str, embed_dim: int = 100, epochs: int = 1, max_window: int 
         losses_arr = np.array(losses)
 
         loss_data_path = run_dir / f"loss_{run_name}.npz"
-        np.savez(loss_data_path, steps=steps_arr, losses=losses_arr)
+        np.savez(loss_data_path, steps=steps_arr, losses=losses_arr, epoch_losses=np.array(epoch_losses))
 
         plt.figure(figsize=(8, 4))
-        plt.plot(steps_arr, losses_arr, label="Avg loss")
+        plt.plot(steps_arr, losses_arr, marker=".", label=f"Avg loss over the last {report_every:,} steps")
         plt.xlabel("Global step")
         plt.ylabel("Average loss")
         plt.title(f"Training loss ({run_name})")
@@ -105,6 +107,7 @@ def train(run_name: str, embed_dim: int = 100, epochs: int = 1, max_window: int 
             "noise_power": 0.75,
             "start_lr": start_lr,
             "lr_min": lr_min,
+            "report_every": report_every,
             "seed": seed,
         },
         "data": {
@@ -113,6 +116,7 @@ def train(run_name: str, embed_dim: int = 100, epochs: int = 1, max_window: int 
         },
         "results": {
             "train_time_s": round(train_time, 2),
+            "epoch_losses": [float(loss) for loss in epoch_losses],
             "loss_history": [[int(step), float(loss)] for step, loss in loss_history],
         },
         "environment": {
