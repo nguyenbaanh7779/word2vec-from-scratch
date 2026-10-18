@@ -1,0 +1,54 @@
+\section{Concepts and their location in the code}
+\label{app:code}
+
+\begin{table}[H]
+    \centering
+    \small
+    \begin{tabular}{>{\raggedright\arraybackslash}p{0.4\linewidth}>{\raggedright\arraybackslash}p{0.55\linewidth}}
+        \toprule
+        Concept & Code (relative to \texttt{src/}) \\
+        \midrule
+        text8 download and loading & \texttt{dataset/text8.py} \\
+        Vocabulary (minimum count, frequency order) & \texttt{dataset/vocabulary.py}, \texttt{Vocabulary.\_build} \\
+        Subsampling of frequent words & \texttt{dataset/vocabulary.py}, \texttt{encode\_subsampled} \\
+        Data pipeline (load, vocabulary, subsample) & \texttt{dataset/training.py}, \texttt{get\_training\_data} \\
+        Training pairs (dynamic window), epochs & \texttt{model/word2vec.py}, \texttt{MyWord2Vec.train} \\
+        Noise distribution, batched negative sampler & \texttt{utils.py}, \texttt{build\_noise\_distribution}, \texttt{NegativeSampler} \\
+        Forward pass, gradients, SGD update & \texttt{model/word2vec.py}, \texttt{MyWord2Vec.step} \\
+        Learning-rate decay & \texttt{utils.py}, \texttt{learning\_rate\_decay} \\
+        Run orchestration, seed, saving, \texttt{config.json} & \texttt{training/train.py} \\
+        Nearest neighbours, analogies & \texttt{model/word2vec.py}, \texttt{get\_most\_similar}, \texttt{analogy} \\
+        Evaluation protocol, PCA figure & \texttt{evaluation/evaluate.py} \\
+        \bottomrule
+    \end{tabular}
+    \caption{Where each part of the method is implemented.}
+\end{table}
+
+\section{Reproducing the results}
+\label{app:reproduce}
+
+\begin{lstlisting}[language=bash, numbers=none]
+conda env create -f environment.yml
+conda activate word2vec-from-scratch
+
+experiments/run_demo.sh      # train + evaluate, 1M tokens x 3 epochs
+experiments/run_final.sh     # train + evaluate, 5M tokens x 3 epochs
+python experiments/make_report_assets.py   # figures and tables of this report
+
+python demo/demo.py          # interactive queries on the final embeddings
+\end{lstlisting}
+
+Each run writes \texttt{output/<run>/config.json}, \texttt{evaluation.json} and \texttt{evaluation.md}; the report is compiled with XeLaTeX and BibTeX from \texttt{report/main.tex}.
+
+\section{Changes made to the original repository}
+\label{app:changes}
+
+\begin{itemize}
+    \item \textbf{Command line.} The documented command \texttt{python run.py train \dots} failed because the CLI library treated the single command as the root command; \texttt{train} and \texttt{evaluate} are now subcommands. Previously hard-coded hyperparameters (minimum count, subsampling threshold, learning rates, report interval) are options, and \texttt{--seed} seeds both random number generators.
+    \item \textbf{Run record.} Each run writes \texttt{config.json} (hyperparameters, data statistics, loss history, runtime, Python and NumPy versions, git commit).
+    \item \textbf{Loss logging.} Mean loss per window of steps and per epoch, instead of a running average since the start of the epoch.
+    \item \textbf{Negative sampling.} Batched sampling from the same distribution (Section~\ref{sec:method-negatives}).
+    \item \textbf{Analogy scores.} The target vector $\mathbf{v}_b - \mathbf{v}_a + \mathbf{v}_c$ is normalised, so scores are cosine similarities; the original scores could exceed 1. Rankings are unchanged.
+    \item \textbf{Evaluation.} New \texttt{evaluate} command with fixed queries, an untrained baseline, frequency-matched cosine percentiles and a PCA figure; experiment scripts and a demo script.
+\end{itemize}
+The model, its initialisation, the loss, the gradients, the window sampling and the learning-rate schedule are those of the original repository.

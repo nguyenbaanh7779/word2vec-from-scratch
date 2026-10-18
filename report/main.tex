@@ -1,0 +1,116 @@
+\documentclass[a4paper,11pt]{article}
+
+% ---- Page layout ----
+\usepackage[margin=2.5cm]{geometry}
+
+% ---- Fonts (XeLaTeX; needed for correct Vietnamese diacritics) ----
+\usepackage{fontspec}
+
+% ---- Typography & links ----
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks = true,
+    linkcolor  = blue!50!black,
+    citecolor  = blue!50!black,
+    urlcolor   = blue!50!black
+}
+
+% ---- Math ----
+\usepackage{amsmath,amssymb,mathtools}
+\DeclareMathOperator*{\argmax}{arg\,max}
+
+% ---- Figures & tables ----
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{tikz}
+\usetikzlibrary{positioning,arrows.meta,calc,fit,decorations.pathreplacing}
+\graphicspath{{figures/}}
+
+% ---- Code ----
+\usepackage{listings}
+\lstset{
+    language     = Python,
+    basicstyle   = \ttfamily\small,
+    keywordstyle = \color{blue!60!black},
+    commentstyle = \color{black!55},
+    stringstyle  = \color{green!40!black},
+    frame        = lines,
+    framesep     = 4pt,
+    columns      = fullflexible,
+    keepspaces   = true,
+    showstringspaces = false,
+    numbers      = left,
+    numberstyle  = \tiny\color{black!50},
+    xleftmargin  = 1.5em
+}
+
+% ---- References ----
+\usepackage[round]{natbib}
+
+% ---- Header / footer ----
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\rfoot{\thepage}
+\renewcommand{\headrulewidth}{0pt}
+
+% Numbers quoted in the text, generated from the experiment outputs
+\input{generated/macros}
+
+\begin{document}
+
+\begin{titlepage}
+    \centering
+    \vspace*{3cm}
+
+    {\LARGE\bfseries Learning Word Embeddings from Scratch}\\[0.4cm]
+    {\Large Skip-gram with Negative Sampling on the text8 Corpus}\\[2cm]
+
+    \rule{0.8\linewidth}{0.6pt}\\[0.5cm]
+    {\large Natural Language Processing Project Report}\\[0.2cm]
+    \rule{0.8\linewidth}{0.6pt}
+
+    \vfill
+
+    \begin{tabular}{ll}
+        \textbf{Instructor:} & Nguyễn Kiêm Hiếu \\
+    \end{tabular}
+
+    \vspace{0.8cm}
+
+    \textbf{Group Members}\\[0.3cm]
+    \begin{tabular}{ll}
+        Nguyễn Bá Anh & 20261218M \\
+        Nguyễn Thị Nhã Linh & 20261262M \\
+    \end{tabular}
+
+    \vspace{1cm}
+    {\large \today}
+
+    \vspace*{1cm}
+\end{titlepage}
+
+\tableofcontents
+\clearpage
+
+\input{sections/01_introduction}
+\input{sections/02_background}
+\input{sections/03_methodology}
+\input{sections/04_experiment}
+\input{sections/05_results}
+\input{sections/06_applications}
+\input{sections/07_conclusion}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\appendix
+\input{sections/appendix}
+
+\end{document}

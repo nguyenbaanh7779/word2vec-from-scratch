@@ -1,0 +1,24 @@
+\section{Applications and Limitations}
+\label{sec:applications}
+
+\subsection{Applications}
+
+Embeddings like these are used wherever a model needs a notion of word similarity without labelled data:
+\begin{itemize}
+    \item \textbf{Input features for downstream models.} Pre-trained vectors can initialise the embedding layer of a text classifier, for example for sentiment analysis, so that words unseen in the labelled training set still receive meaningful inputs.
+    \item \textbf{Similarity search and query expansion.} Nearest neighbours suggest related terms; for instance, a search for \textit{january} can be expanded with other months.
+    \item \textbf{Exploring a corpus.} Neighbour lists and two-dimensional maps such as Figure~\ref{fig:pca} summarise which words a corpus uses in similar ways.
+    \item \textbf{Beyond words.} The same objective applies to any sequence of discrete items, such as products in a shopping session, by treating co-occurring items as context.
+\end{itemize}
+Our embeddings, trained on \FinalTokens{} tokens, are a teaching artefact rather than a resource for these uses; practical systems train on corpora several orders of magnitude larger.
+
+\subsection{Limitations}
+
+\begin{itemize}
+    \item \textbf{Corpus size and coverage.} The final run uses about 29\% of text8, and as a contiguous prefix it covers only the first articles of the dump. Vocabulary, neighbours and analogy results depend on which topics appear in that prefix.
+    \item \textbf{Rare words.} Words seen only a few times receive few updates and stay close to a direction shared by all such words. Their neighbours are unreliable, and they inflate any similarity statistic computed over the whole vocabulary (Section~\ref{sec:protocol}).
+    \item \textbf{One vector per word.} A static embedding merges all senses of a word (\textit{bank} as a river side and as an institution) and ignores word order beyond the window.
+    \item \textbf{Small, qualitative evaluation.} We use 8 neighbour queries, 9 word pairs and 8 analogies. They show clear tendencies but not reliable rates; a standard benchmark such as a word-similarity dataset or the full Google analogy set would give quantitative scores.
+    \item \textbf{Training loss is measured on the training stream.} Each pair's loss is computed just before the model learns from it; there is no held-out objective, and the curve depends on the order of the text.
+    \item \textbf{Single seed and no tuning.} Each configuration was trained once with common default hyperparameters, so we cannot quantify run-to-run variation or claim that the settings are good for this corpus. Subsampling is drawn once rather than per epoch.
+\end{itemize}

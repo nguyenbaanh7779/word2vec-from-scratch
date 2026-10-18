@@ -1,0 +1,29 @@
+% Training and evaluation pipeline with the code location of each stage (shared by report and slides).
+% Requires \usetikzlibrary{positioning,arrows.meta}
+\begin{tikzpicture}[
+    stage/.style={draw=black!55, rounded corners=3pt, fill=black!3, align=center, minimum height=19mm,
+                  text width=23mm, inner sep=3pt, font=\footnotesize},
+    model/.style={stage, fill=orange!15, draw=orange!75!black},
+    file/.style={font=\scriptsize\ttfamily, text=black!60, align=center, text width=24mm, anchor=south},
+    >={Stealth[length=2mm]}
+]
+    \node[stage] (s1) {\textbf{text8}\\first $N$ tokens};
+    \node[stage, right=5mm of s1] (s2) {\textbf{Vocabulary}\\count $\geq 5$,\\subsampling};
+    \node[stage, right=5mm of s2] (s3) {\textbf{Training pairs}\\dynamic window\\$W \sim U\{1..5\}$};
+    \node[model, right=5mm of s3] (s4) {\textbf{Negative}\\\textbf{sampling}\\$K = 5$, $f(w)^{3/4}$};
+    \node[model, right=5mm of s4] (s5) {\textbf{SGNS step}\\forward, gradients,\\SGD update};
+    \node[stage, right=5mm of s5] (s6) {\textbf{Embeddings}\\$W_{\text{in}} \in \mathbb{R}^{V \times d}$};
+    \node[stage, right=5mm of s6] (s7) {\textbf{Evaluation}\\neighbours, cosine,\\analogy, PCA};
+
+    \foreach \a/\b in {s1/s2, s2/s3, s3/s4, s4/s5, s5/s6, s6/s7}
+        \draw[->, black!70] (\a) -- (\b);
+    \draw[->, orange!75!black] (s5.south) -- ++(0,-3mm) -| node[pos=0.25, below, font=\scriptsize, text=orange!60!black] {repeat for every pair, epochs} (s3.south);
+
+    \node[file, above=1mm of s1] {dataset/\\text8.py};
+    \node[file, above=1mm of s2] {dataset/\\vocabulary.py};
+    \node[file, above=1mm of s3] {model/\\word2vec.py};
+    \node[file, above=1mm of s4] {\\utils.py};
+    \node[file, above=1mm of s5] {model/\\word2vec.py};
+    \node[file, above=1mm of s6] {training/\\train.py};
+    \node[file, above=1mm of s7] {evaluation/\\evaluate.py};
+\end{tikzpicture}

@@ -1,0 +1,73 @@
+\section{Methodology}
+\label{sec:method}
+
+This section describes how the original repository implements SGNS and what we changed. Figure~\ref{fig:pipeline} gives the overall pipeline; Appendix~\ref{app:code} maps each concept to its location in the code.
+
+\begin{figure}[t]
+    \centering
+    \resizebox{\linewidth}{!}{\input{figures/tikz_pipeline}}
+    \caption{Training and evaluation pipeline. File names are relative to \texttt{src/}. The orange stages run once per training pair.}
+    \label{fig:pipeline}
+\end{figure}
+
+\subsection{Dataset}
+
+We use text8 \citep{mahoney_text8}, a cleaned extract of English Wikipedia distributed for compression benchmarks: lower-case letters \texttt{a}--\texttt{z} separated by single spaces, about 17 million tokens in one line, with punctuation removed and digits spelled out as words. Tokenisation is therefore a whitespace split. To keep training short, a run uses only the first $N$ tokens of the file (\DemoTokens{} or \FinalTokens{} in our experiments), so it sees a contiguous prefix of the corpus rather than a random sample of articles. The corpus is downloaded automatically on first use.
+
+\subsection{Vocabulary and subsampling}
+
+The vocabulary contains every word that occurs at least 5 times in the $N$ tokens, indexed by decreasing frequency; other words are dropped from the token sequence. Frequent words are then subsampled as in Section~\ref{sec:background-ns}: each occurrence of $w$ is kept with probability $\min\!\left(1, \sqrt{t / f(w)}\right)$, $t = 10^{-3}$, where $f(w)$ is the relative frequency of $w$ in the vocabulary. Dropping rare words and subsampling together leave about two thirds of the tokens (Table~\ref{tab:runs}). It is applied once before training, so all epochs see the same subsampled sequence rather than a new draw per pass.
+
+\subsection{Training pairs}
+
+Pairs are generated on the fly. For each position $i$ of the subsampled sequence, a window size $W$ is drawn uniformly from $\{1, \dots, 5\}$ and the centre word is paired with the $W$ words on each side. Drawing $W$ at random weights nearby words more, since the immediate neighbours are inside the window for every $W$ while words five positions away are included only when $W = 5$. A centre word yields $W + 1$ context words on average, i.e.\ 6 with a maximum window of 5, so one epoch has about $6N'$ training pairs for $N'$ tokens after subsampling.
+
+\subsection{Model, loss and gradients}
+
+$W_{\text{in}}$ is initialised uniformly in $[-0.5/d, 0.5/d]$ and $W_{\text{out}}$ with zeros. For a centre word $c$, a positive context word $o$ and negative words $n_1, \dots, n_K$, let $s_o = \mathbf{v}'_o \cdot \mathbf{v}_c$ and $s_k = \mathbf{v}'_{n_k} \cdot \mathbf{v}_c$. The code minimises the negative of objective~\eqref{eq:sgns},
+\begin{equation}
+    L = -\log \sigma(s_o) - \sum_{k=1}^{K} \log\bigl(1 - \sigma(s_k)\bigr),
+\end{equation}
+which is the same quantity because $1 - \sigma(x) = \sigma(-x)$. Using $\sigma'(x) = \sigma(x)(1 - \sigma(x))$, the gradients are
+\begin{align}
+    \frac{\partial L}{\partial \mathbf{v}_c} &= \bigl(\sigma(s_o) - 1\bigr)\, \mathbf{v}'_o + \sum_{k=1}^{K} \sigma(s_k)\, \mathbf{v}'_{n_k}, \\
+    \frac{\partial L}{\partial \mathbf{v}'_o} &= \bigl(\sigma(s_o) - 1\bigr)\, \mathbf{v}_c,
+    \qquad
+    \frac{\partial L}{\partial \mathbf{v}'_{n_k}} = \sigma(s_k)\, \mathbf{v}_c .
+\end{align}
+Only $K + 2$ rows of the two matrices change per step. Listing~\ref{lst:step} shows the corresponding training step from the original repository, without its comments. \texttt{np.add.at} accumulates the updates correctly when the same negative word is drawn twice.
+
+\begin{lstlisting}[caption={One SGNS training step (\texttt{MyWord2Vec.step} in \texttt{src/model/word2vec.py}).}, label={lst:step}, float=t]
+v_c = self.W_in[centre_idx]                  # (D)
+v_o = self.W_out[pos_idx]                    # (D)
+V_n = self.W_out[neg_idxs]                   # (K, D)
+
+sig_o = sigmoid(v_c @ v_o)                   # P(positive | centre)
+sig_k = sigmoid(V_n @ v_c)                   # (K)
+loss = -np.log(sig_o + eps) - np.sum(np.log(1.0 - sig_k + eps))
+
+grad_s_o = sig_o - 1.0                       # dL/ds_o
+grad_s_k = sig_k                             # dL/ds_k
+grad_vc = grad_s_o * v_o + grad_s_k @ V_n
+grad_vo = grad_s_o * v_c
+grad_Vn = np.outer(grad_s_k, v_c)            # (K, D)
+
+self.W_in[centre_idx] -= lr * grad_vc        # SGD updates
+self.W_out[pos_idx]   -= lr * grad_vo
+np.add.at(self.W_out, neg_idxs, -lr * grad_Vn)
+\end{lstlisting}
+
+\subsection{Negative sampling in practice}
+\label{sec:method-negatives}
+
+The noise distribution is the unigram distribution of the vocabulary raised to the power $3/4$ and renormalised. Each positive pair receives $K = 5$ negatives; a negative that coincides with the centre or the context word is re-drawn.
+
+The original repository drew each set of negatives with \texttt{np.random.choice(V, size=K, p=noise\_dist)}. This call rebuilds the cumulative distribution over the whole vocabulary every time, so its cost grows with $V$ and is paid once per training pair. Profiling showed that it took most of the training time: throughput fell from about 10,900 steps per second with \DemoVocab{} words to about 5,200 with \FinalVocab{} words, while the gradient step itself took only a small share. We replaced it with a sampler that draws one million i.i.d.\ negatives at a time from the same distribution and hands them out in order. The samples follow the same distribution: over two million draws, their total variation distance to $P_n$ was 0.041, identical to that of direct sampling, which is pure sampling noise. Throughput became 41,000--46,000 steps per second in our runs, almost independent of vocabulary size (Table~\ref{tab:runs}), and the \DemoTokensShort-token, three-epoch configuration took 251 seconds instead of 1,023 seconds with the original code. Both versions reached the same per-epoch losses (Section~\ref{sec:results-loss}), confirming that training behaves the same.
+
+\subsection{Optimisation}
+
+Training uses plain stochastic gradient descent on one pair at a time. The learning rate decays linearly from $\eta_0 = 0.025$ towards $10^{-4}$ over the estimated number of steps $\text{epochs} \times N' \times 6$:
+\begin{equation}
+    \eta_t = \max\!\left(10^{-4}, \; \eta_0 \left(1 - t / T\right)\right).
+\end{equation}
+After training, the rows of $W_{\text{in}}$ serve as the word embeddings; $W_{\text{out}}$ is used only during training.

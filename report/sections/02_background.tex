@@ -1,0 +1,58 @@
+\section{Background}
+\label{sec:background}
+
+\subsection{Word representations}
+
+Let $V$ be the size of the vocabulary. A one-hot representation encodes word $i$ as the $i$-th standard basis vector of $\mathbb{R}^{V}$. These vectors are sparse, as long as the vocabulary, and mutually orthogonal, so they carry no notion of similarity. A word embedding instead assigns each word $w$ a dense vector $\mathbf{v}_w \in \mathbb{R}^{d}$ with $d \ll V$ (here $d = 100$ and $V$ is in the tens of thousands).
+
+Embeddings are learned from the \emph{distributional hypothesis}: words that occur in similar contexts tend to have similar meanings \citep{harris1954distributional}, or in Firth's words, ``you shall know a word by the company it keeps'' \citep{firth1957synopsis}. \textit{King} and \textit{queen} both appear near \textit{crowned}, \textit{reign} and \textit{throne}; a model that has to predict such contexts is pushed to give the two words similar vectors. Neural language models learned embeddings as a by-product of next-word prediction \citep{bengio2003neural}; Word2Vec keeps the idea but strips the model down so that it can be trained on far more text.
+
+\subsection{Word2Vec: CBOW and Skip-gram}
+
+Word2Vec \citep{mikolov2013efficient} is a shallow model with two embedding matrices: an input matrix $W_{\text{in}} \in \mathbb{R}^{V \times d}$ whose row $\mathbf{v}_w$ represents $w$ as a centre word, and an output matrix $W_{\text{out}} \in \mathbb{R}^{V \times d}$ whose row $\mathbf{v}'_w$ represents $w$ as a context word. The score of a (centre $c$, context $o$) pair is the dot product $\mathbf{v}'_o \cdot \mathbf{v}_c$. There are two architectures:
+\begin{itemize}
+    \item \textbf{CBOW} (continuous bag-of-words) predicts the centre word from the average of its context vectors;
+    \item \textbf{Skip-gram} predicts each context word from the centre word.
+\end{itemize}
+This project uses Skip-gram. Given a corpus $w_1, \dots, w_T$ and a window size $c$, Skip-gram maximises the average log-probability of the context words:
+\begin{equation}
+    \frac{1}{T} \sum_{t=1}^{T} \sum_{\substack{-c \leq j \leq c \\ j \neq 0}} \log p(w_{t+j} \mid w_t),
+    \qquad
+    p(o \mid c) = \frac{\exp(\mathbf{v}'_o \cdot \mathbf{v}_c)}{\sum_{w=1}^{V} \exp(\mathbf{v}'_w \cdot \mathbf{v}_c)} .
+    \label{eq:skipgram}
+\end{equation}
+The softmax denominator sums over the whole vocabulary, so every training pair costs $O(V)$ operations. Figure~\ref{fig:skipgram} shows the pairs produced by one centre word.
+
+\begin{figure}[t]
+    \centering
+    \input{figures/tikz_skipgram}
+    \caption{Training pairs for the centre word \textit{king}. Each word inside the window forms a positive pair with the centre word; each positive pair is complemented by $K$ negative pairs with words drawn at random from the noise distribution (the negative words shown are illustrative).}
+    \label{fig:skipgram}
+\end{figure}
+
+\subsection{Negative sampling}
+\label{sec:background-ns}
+
+Negative sampling \citep{mikolov2013distributed} replaces the $V$-way softmax with a binary task: tell the observed pair $(c, o)$ apart from $K$ pairs $(c, n_k)$ whose words $n_k$ are drawn from a noise distribution $P_n$. With $\sigma(x) = 1 / (1 + e^{-x})$, the objective for one positive pair is
+\begin{equation}
+    \log \sigma(\mathbf{v}'_o \cdot \mathbf{v}_c) + \sum_{k=1}^{K} \mathbb{E}_{n_k \sim P_n} \left[ \log \sigma(-\mathbf{v}'_{n_k} \cdot \mathbf{v}_c) \right],
+    \qquad
+    P_n(w) \propto f(w)^{3/4},
+    \label{eq:sgns}
+\end{equation}
+where $f(w)$ is the frequency of $w$. The first term pulls the centre vector towards the vectors of its true context words; the second pushes it away from random words. Each pair now costs $O(K)$ instead of $O(V)$, with $K$ between 5 and 20 in practice. The exponent $3/4$ samples rare words more often than their raw frequency would. \citet{goldberg2014word2vec} give a detailed derivation of this objective.
+
+The same paper introduces \emph{subsampling} of frequent words: each occurrence of $w$ is discarded with probability $1 - \sqrt{t / f(w)}$ for a threshold $t$ (here $10^{-3}$). Very frequent words such as \textit{the} carry little information about their neighbours, so dropping many of their occurrences speeds up training and gives rarer words more weight.
+
+\subsection{Comparing embeddings}
+
+Embeddings are compared with the cosine similarity
+\begin{equation}
+    \cos(\mathbf{u}, \mathbf{v}) = \frac{\mathbf{u} \cdot \mathbf{v}}{\lVert \mathbf{u} \rVert \, \lVert \mathbf{v} \rVert} \in [-1, 1] .
+\end{equation}
+The nearest neighbours of a word are the words with the highest cosine similarity to it. A word analogy ``$a$ is to $b$ as $c$ is to ?'' is answered by vector offsets \citep{mikolov2013linguistic}:
+\begin{equation}
+    \argmax_{w \notin \{a, b, c\}} \; \cos(\mathbf{v}_w, \; \mathbf{v}_b - \mathbf{v}_a + \mathbf{v}_c),
+    \label{eq:analogy}
+\end{equation}
+so \textit{king} $-$ \textit{man} $+$ \textit{woman} $\approx$ \textit{queen} corresponds to $a = $ \textit{man}, $b = $ \textit{king}, $c = $ \textit{woman}.

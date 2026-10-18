@@ -1,0 +1,84 @@
+\section{Results}
+\label{sec:results}
+
+Unless stated otherwise, results refer to the final run (\FinalTokensShort{} tokens). Table~\ref{tab:runs} summarises both runs.
+
+\begin{table}[t]
+    \centering
+    \small
+    \input{generated/runs}
+    \caption{Summary of the two runs. The only difference in configuration is the number of tokens.}
+    \label{tab:runs}
+\end{table}
+
+\subsection{Training loss (Q1)}
+\label{sec:results-loss}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\linewidth]{loss_curves.pdf}
+    \caption{Mean training loss per window of steps. Dotted lines mark epoch boundaries.}
+    \label{fig:loss}
+\end{figure}
+
+Figure~\ref{fig:loss} shows that the loss falls quickly at the start of training, from \FinalLossFirstWindow{} in the first window of the final run (\DemoLossFirstWindow{} in the demo run) to about 2.3 (about 2.45 in the demo run), and is nearly flat afterwards. Most of the decrease happens in the first quarter of the first epoch. The two curves are not directly comparable, because the final run sees text that the demo run never sees.
+
+The epoch means in Table~\ref{tab:runs} are more surprising. Every epoch passes over the same text in the same order, so they are comparable within a run: the loss drops from epoch 1 to epoch 2 but \emph{rises} again in epoch 3, in both runs (\FinalLossEpochTwo{} to \FinalLossEpochThree{} for the final run). This is not caused by our modifications: the original code on the demo configuration gives the same pattern (2.425 to 2.469). We have not established the cause. One possible explanation is that the loss is measured on each pair just before learning from it: with a large learning rate, the model adapts to the article it is reading and predicts the next pairs of that article better, an advantage that fades as the learning rate decays towards zero. Whatever the reason, the answer to Q1 is that the objective is clearly optimised early on, but the online training loss says little about how good the embeddings are, which is why we evaluate them directly.
+
+\subsection{Nearest neighbours (Q2)}
+
+\begin{table}[t]
+    \centering
+    \small
+    \input{generated/neighbours}
+    \caption{Nearest neighbours by cosine similarity, final run and the same model before training. All 8 query words were fixed in advance.}
+    \label{tab:neighbours}
+\end{table}
+
+Table~\ref{tab:neighbours} shows that training produces meaningful neighbourhoods, while the untrained model returns unrelated words. The clearest cases are closed classes of words that can replace each other in a sentence: all eight neighbours of \textit{january} are months, those of \textit{france} are European countries, and the first five neighbours of \textit{three} are numbers. Other lists mix words of the same type with topically related words: \textit{music} has genres (\textit{jazz}, \textit{pop}, \textit{folk}), \textit{computer} has \textit{hardware}, \textit{software} and \textit{programmer}, and \textit{war} has names of wars together with \textit{outbreak} and \textit{veterans}.
+
+Some neighbours are less intuitive. \textit{King} is closest to specific monarchs and regnal terms (\textit{alexius}, \textit{throne}, \textit{vii}, \textit{honorius}) rather than to \textit{queen}, and the neighbours of \textit{three} end with rare tokens (\textit{hdi}, \textit{unpaved}) that probably come from tables of figures in country articles. With fewer tokens, the demo run had more such noise: its neighbours of \textit{three} were mostly abbreviations, and those of \textit{computer} included \textit{animation} and \textit{game}.
+
+\subsection{Cosine similarity (Q3)}
+
+\begin{table}[t]
+    \centering
+    \small
+    \input{generated/cosine}
+    \caption{Cosine similarity of fixed word pairs, with its percentile pN among random pairs of the \BaselineWords{} most frequent words of the same model. Above the line: related pairs; below: unrelated control pairs. ``Untrained'' is the final model before training.}
+    \label{tab:cosine}
+\end{table}
+
+In the final run, every related pair is more similar than at least \FinalRelatedPctMin\% of random pairs, and five of the six are more similar than over 99\% of them (Table~\ref{tab:cosine}). The control pairs have percentiles between \FinalControlPctMin{} and \FinalControlPctMax. Before training, the percentiles are scattered with no relation to meaning. The answer to Q3 is therefore yes, provided similarities are compared with the right reference.
+
+The raw values show why that reference matters. The cosine of \textit{king} and \textit{queen} \emph{decreases} from the demo to the final run (0.91 to 0.70) while its percentile increases (from 98.2 to 99.7), because the typical similarity of frequent words fell from \DemoBaselineMean{} to \FinalBaselineMean{}: with more data, vectors spread out and share less of a common direction. Raw cosine values are thus not comparable across models, and a value such as 0.70 means little on its own.
+
+\subsection{Analogies (Q4)}
+
+\begin{table}[t]
+    \centering
+    \small
+    \setlength{\tabcolsep}{4.5pt}
+    \input{generated/analogies}
+    \caption{Analogies $a : b :: c : ?$ answered by the nearest word to $\mathbf{v}_b - \mathbf{v}_a + \mathbf{v}_c$. Rank of the expected answer among the ten best candidates ($>$10: not among them).}
+    \label{tab:analogies}
+\end{table}
+
+The final model ranks the expected answer first for \FinalHitOne{} of the \FinalAnswerable{} analogies and within the top five for \FinalHitFive{} (Table~\ref{tab:analogies}). The demo model reaches \DemoHitOne{} and \DemoHitFive, and the untrained model none. Capital cities (\textit{paris} $\to$ \textit{berlin}), family relations (\textit{mother}), comparatives (\textit{smaller}) and nationality adjectives (\textit{french}) work. The best-known example, \textit{king} $-$ \textit{man} $+$ \textit{woman}, does not: \textit{queen} is not among the ten best answers, which start with \textit{daughter} and two historical rulers, even though \textit{king} and \textit{queen} are highly similar. The analogy \textit{france} : \textit{paris} :: \textit{italy} : \textit{rome} also fails, while the same relation works for Germany.
+
+An offset such as \textit{king} $-$ \textit{man} only transfers to \textit{woman} if the relation is expressed consistently across many contexts. Possible reasons for the failures are the small and topically narrow corpus, in which \textit{king} occurs mostly in historical articles about specific rulers (as its neighbours suggest), and the small number of examples of each relation. \citet{mikolov2013efficient} trained on corpora orders of magnitude larger. With 8 analogies, these counts illustrate the trend from 1M to 5M tokens but are not an accuracy estimate.
+
+\subsection{Embedding space (Q5)}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\linewidth]{pca_final.pdf}
+    \caption{PCA of 32 words from four groups fixed in advance, final model (left) and the same model before training (right). Some labels in dense clusters are omitted to avoid overlap.}
+    \label{fig:pca}
+\end{figure}
+
+Figure~\ref{fig:pca} projects the 32 words of the four groups onto their first two principal components. After training, the groups form four separate clusters: numbers and months are very tight, countries are spread more widely, and family and royalty words lie together, with \textit{king}, \textit{queen} and \textit{prince} next to each other. The two components capture 27\% and 16\% of the variance of these vectors. Before training, the same words show no grouping and the components capture only 8\% and 7\%, as expected for random vectors. The picture should be read with care: the 32 words were chosen to belong to distinct groups, and two components show only part of the 100-dimensional structure.
+
+\subsection{Effect of corpus size}
+
+The demo and final runs share every setting except the number of tokens. Five times more text gave a vocabulary 2.6 times larger, about 5.3 times more training pairs and 5.9 times the training time (Table~\ref{tab:runs}). Every evaluation improved: neighbour lists contain less noise, related and unrelated pairs are better separated, and the analogy hits went from \DemoHitOne{}/\DemoHitFive{} to \FinalHitOne{}/\FinalHitFive{} (hit@1/hit@5). Because more text also means more updates, these two factors cannot be separated with our runs.

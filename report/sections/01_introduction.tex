@@ -1,0 +1,32 @@
+\section{Introduction}
+\label{sec:introduction}
+
+Most NLP models start by turning words into numbers. The simplest choice, a one-hot vector per word, treats every pair of words as equally different: \textit{king} is as far from \textit{queen} as it is from \textit{carrot}. Word embeddings instead map each word to a dense vector of a few hundred dimensions, learned so that words used in similar contexts receive similar vectors \citep{harris1954distributional, firth1957synopsis, bengio2003neural}. Word2Vec \citep{mikolov2013efficient, mikolov2013distributed} made such embeddings cheap to train on large corpora and showed that simple vector arithmetic can expose relations between words \citep{mikolov2013linguistic}.
+
+This project studies one Word2Vec variant, Skip-gram with Negative Sampling (SGNS), by training it from scratch and inspecting what it learns. It is organised around one question:
+
+\begin{quote}
+\emph{How can a model learn useful numerical representations of words from their surrounding context?}
+\end{quote}
+
+We break this question into five experimental questions:
+\begin{enumerate}
+    \item[\textbf{Q1}] Does training reduce the loss?
+    \item[\textbf{Q2}] Does the model learn semantically related words (nearest neighbours)?
+    \item[\textbf{Q3}] Are related words closer in vector space than unrelated ones (cosine similarity)?
+    \item[\textbf{Q4}] Do vector offsets represent relations (word analogies such as \textit{king} $-$ \textit{man} $+$ \textit{woman})?
+    \item[\textbf{Q5}] What does the embedding space look like in two dimensions?
+\end{enumerate}
+
+\paragraph{Source code and our contribution.}
+The SGNS implementation is taken from the open-source repository of \citet{caselli2026word2vec}, written in NumPy without a deep learning framework. The original repository provides the model, the text8 loader, the vocabulary with subsampling, the training loop and basic similarity and analogy functions. On top of it we:
+\begin{itemize}
+    \item made experiments reproducible: a random seed, all hyperparameters exposed on the command line, and a record of every run (hyperparameters, data statistics, runtime, environment and code version); we also fixed the documented training command, which did not run;
+    \item profiled training and removed its main bottleneck in negative sampling, which made training about four times faster without changing the algorithm (Section~\ref{sec:method-negatives});
+    \item designed an evaluation protocol with queries fixed in advance, an untrained baseline and a frequency-matched baseline for cosine similarities (Section~\ref{sec:protocol});
+    \item ran a \DemoTokensShort-token and a \FinalTokensShort-token experiment and analysed the resulting embeddings.
+\end{itemize}
+Throughout the report, ``the original repository'' refers to the upstream code and ``our experiment'' to runs we configured and executed. All numbers in the tables are generated from the output files of our runs.
+
+\paragraph{Outline.}
+Section~\ref{sec:background} introduces word embeddings, Skip-gram and negative sampling. Section~\ref{sec:method} describes how the implementation realises them. Section~\ref{sec:setup} gives the experimental setup and evaluation protocol, and Section~\ref{sec:results} the results. Section~\ref{sec:applications} discusses applications and limitations, and Section~\ref{sec:conclusion} concludes.

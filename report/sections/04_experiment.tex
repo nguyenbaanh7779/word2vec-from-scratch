@@ -1,0 +1,38 @@
+\section{Experimental Setup}
+\label{sec:setup}
+
+\subsection{Environment and runs}
+
+All runs were executed on one core of an Apple M5 laptop with Python \FinalPython{} and NumPy \FinalNumpy{}, from commit \FinalCommit{} of our fork. Each run writes its embeddings, its loss history and a \texttt{config.json} file with every hyperparameter, the vocabulary size, the number of tokens after subsampling, the training time and the environment; the tables in this report are generated from these files. Two runs with the same arguments produce identical embeddings.
+
+We report two runs that differ only in the amount of text:
+\begin{itemize}
+    \item \textbf{Demo}: the first \DemoTokens{} tokens of text8, used for quick iterations and as a smaller-corpus comparison;
+    \item \textbf{Final}: the first \FinalTokens{} tokens (about 29\% of text8), our main result.
+\end{itemize}
+Table~\ref{tab:hyperparameters} lists the hyperparameters. The window size, number of negatives, subsampling threshold and learning rate follow common Word2Vec defaults; we did not tune them. A smoke test on 100,000 tokens was used only to check the pipeline and is not reported.
+
+\begin{table}[t]
+    \centering
+    \small
+    \input{generated/hyperparameters}
+    \caption{Hyperparameters shared by both runs (only the number of tokens and the loss report interval differ).}
+    \label{tab:hyperparameters}
+\end{table}
+
+\subsection{Evaluation protocol}
+\label{sec:protocol}
+
+Training loss shows whether the objective is being optimised, but not whether the embeddings are meaningful, so we evaluate the embeddings directly. All evaluation uses cosine similarity on the rows of $W_{\text{in}}$.
+
+\begin{itemize}
+    \item \textbf{Training loss (Q1).} The loss of each pair is computed before its update. We record its mean over consecutive windows of steps (100,000 for the demo run, 500,000 for the final run) and the mean over each epoch. The original repository recorded a running average since the start of the epoch, which lags behind the current loss and resets at every epoch.
+    \item \textbf{Nearest neighbours (Q2).} The eight words closest to each of 8 query words.
+    \item \textbf{Cosine similarity (Q3).} The similarity of 6 related pairs and 3 unrelated control pairs. Raw cosine values are hard to interpret, because word vectors share a common direction \citep{mu2018allbutthetop}: in our final run, random pairs of frequent words already average \FinalBaselineMean. We therefore report each value as a percentile: the share of 10,000 random pairs of words that are less similar. The random pairs are drawn from the \BaselineWords{} most frequent words, which contain every query word.
+    \item \textbf{Analogies (Q4).} 8 analogies of the form $a : b :: c : ?$, answered with Equation~\eqref{eq:analogy}. We report the rank of the expected answer among the ten best candidates, and hit@1 and hit@5 counts.
+    \item \textbf{Visualisation (Q5).} A two-dimensional principal component analysis (PCA) of 32 words from four groups (countries, numbers, months, family and royalty). The vectors are L2-normalised and centred before the decomposition.
+    \item \textbf{Untrained baseline.} Every measurement is repeated on the same model before its first update, rebuilt from the run's seed. Anything the untrained model also shows cannot be credited to training.
+\end{itemize}
+
+\paragraph{Fixed queries and one deviation.}
+All query words, pairs, analogies and PCA groups were written into the evaluation code before any trained model was inspected, and every result is reported, including failures. One part of the protocol changed after we saw results. The random-pair baseline was first drawn from the whole vocabulary. On the demo run it averaged \DemoBaselineAllMean, against \DemoBaselineMean{} among the \BaselineWords{} most frequent words, because rare words, which make up most of the vocabulary, receive few updates and stay close to a shared direction (pairs of words seen at most 19 times averaged 0.93). Against that inflated baseline, related pairs looked unremarkable. Since all query words are frequent, we switched to the frequency-matched baseline above; the queries themselves did not change.

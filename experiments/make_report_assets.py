@@ -104,6 +104,10 @@ def macros(runs: dict[str, dict]) -> str:
         steps = res["loss_history"][-1][0]
         base = trained["random_pair_cosine"][f"top_{N_BASELINE_WORDS}"]
 
+        env = cfg["environment"]
+        define(f"{prefix}Python", env["python"])
+        define(f"{prefix}Numpy", env["numpy"])
+        define(f"{prefix}Commit", f"\\texttt{{{(env['git']['commit'] or 'unknown')[:7]}}}")
         define(f"{prefix}Tokens", fmt_int(hp["max_tokens"]))
         define(f"{prefix}TokensShort", f"{hp['max_tokens'] / 1e6:.0f}M")
         define(f"{prefix}Vocab", fmt_int(data["vocab_size"]))
@@ -189,7 +193,7 @@ def neighbours_table(final: dict, top_trained: int, top_untrained: int) -> str:
     if top_untrained:
         head = f"Query & Trained (top {top_trained}) & Untrained (top {top_untrained}) \\\\"
         rows = [f"\\textit{{{q}}} & {words(trained[q], top_trained)} & {words(untrained[q], top_untrained)} \\\\" for q in NEIGHBOUR_QUERIES]
-        spec = "lp{0.52\\linewidth}p{0.3\\linewidth}"
+        spec = "l>{\\raggedright\\arraybackslash}p{0.5\\linewidth}>{\\raggedright\\arraybackslash}p{0.28\\linewidth}"
     else:
         head = f"Query & Nearest neighbours (top {top_trained}) \\\\"
         rows = [f"\\textit{{{q}}} & {words(trained[q], top_trained)} \\\\" for q in NEIGHBOUR_QUERIES]

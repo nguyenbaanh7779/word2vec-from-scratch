@@ -1,0 +1,37 @@
+% Skip-gram training pairs for one centre word, with negative sampling (shared by report and slides).
+% Requires \usetikzlibrary{positioning,arrows.meta,decorations.pathreplacing}
+\begin{tikzpicture}[
+    tok/.style={draw=black!35, rounded corners=2pt, minimum height=6.5mm, inner xsep=4pt, font=\small\ttfamily, text=black!45},
+    ctx/.style={tok, fill=blue!8, draw=blue!55!black, text=black},
+    ctr/.style={tok, fill=orange!22, draw=orange!75!black, text=black, font=\small\ttfamily\bfseries},
+    pairbox/.style={draw, rounded corners=3pt, align=left, inner sep=6pt, font=\small},
+    >={Stealth[length=2mm]}
+]
+    \node[tok] (t1) {was};
+    \node[ctx, right=2mm of t1] (t2) {crowned};
+    \node[ctx, right=2mm of t2] (t3) {the};
+    \node[ctr, right=2mm of t3] (t4) {king};
+    \node[ctx, right=2mm of t4] (t5) {and};
+    \node[ctx, right=2mm of t5] (t6) {queen};
+    \node[tok, right=2mm of t6] (t7) {of};
+    \node[left=1mm of t1, font=\small, text=black!45] {\dots};
+    \node[right=1mm of t7, font=\small, text=black!45] {\dots};
+
+    \draw[->, blue!55!black] ([xshift=-2mm]t4.north) to[bend right=50] (t3.north);
+    \draw[->, blue!55!black] ([xshift=-4mm]t4.north) to[bend right=40] (t2.north);
+    \draw[->, blue!55!black] ([xshift=2mm]t4.north) to[bend left=50] (t5.north);
+    \draw[->, blue!55!black] ([xshift=4mm]t4.north) to[bend left=40] (t6.north);
+
+    \draw[decorate, decoration={brace, mirror, amplitude=4pt}, black!60]
+        ([yshift=-1mm]t2.south west) -- ([yshift=-1mm]t6.south east)
+        node[midway, below=5pt, font=\footnotesize, text=black!70] (win) {context window of the centre word (here $W = 2$)};
+
+    \node[pairbox, draw=blue!55!black, anchor=north east] (pos) at ([xshift=-3mm, yshift=-4mm]win.south)
+        {\textbf{Positive pairs} (label 1)\\[2pt]
+         \texttt{(king, crowned)}\\ \texttt{(king, the)}\\ \texttt{(king, and)}\\ \texttt{(king, queen)}};
+    \node[pairbox, draw=red!60!black, anchor=north west] (neg) at ([xshift=3mm, yshift=-4mm]win.south)
+        {\textbf{Negative pairs} (label 0)\\[2pt]
+         \texttt{(king, river)}, \texttt{(king, seven)}, \dots\\[2pt]
+         $K$ random words per positive pair,\\
+         drawn from $P_n(w) \propto f(w)^{3/4}$};
+\end{tikzpicture}

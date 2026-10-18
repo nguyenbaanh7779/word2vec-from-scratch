@@ -1,0 +1,16 @@
+\section{Conclusion}
+\label{sec:conclusion}
+
+Word2Vec learns a vector for each word from the words around it. In this project, a NumPy implementation of Skip-gram with Negative Sampling, adapted from an open-source repository, was trained on the first \FinalTokens{} tokens of text8, and the resulting embeddings were evaluated with nearest neighbours, cosine similarities, analogies and a two-dimensional projection, each compared with the same model before training. The answers to the five questions are:
+
+\begin{enumerate}
+    \item[\textbf{Q1}] \textbf{Loss.} The loss drops sharply early in training and then stays nearly flat; the per-epoch means even rise in the last epoch. The online training loss confirms that the objective is optimised but is a poor guide to embedding quality.
+    \item[\textbf{Q2}] \textbf{Neighbours.} Yes. Words of the same type cluster (months, numbers, countries, music genres), together with topically related words; the untrained model gives unrelated words.
+    \item[\textbf{Q3}] \textbf{Similarity.} Yes, against the right reference. Among random pairs of frequent words, related pairs reach a percentile of at least \FinalRelatedPctMin{} and unrelated pairs at most \FinalControlPctMax. Raw cosine values alone are misleading and not comparable between models.
+    \item[\textbf{Q4}] \textbf{Analogies.} Partly. \FinalHitOne{} of \FinalAnswerable{} fixed analogies are solved exactly and \FinalHitFive{} within the top five, up from \DemoHitOne{} and \DemoHitFive{} with 1M tokens; \textit{king} $-$ \textit{man} $+$ \textit{woman} $\approx$ \textit{queen} is not.
+    \item[\textbf{Q5}] \textbf{Embedding space.} Four groups of words chosen in advance form separate clusters in a two-dimensional PCA, which is not the case before training.
+\end{enumerate}
+
+Beyond these answers, the project showed two practical points. Profiling a from-scratch implementation can uncover a large, easy speed-up: batching the negative samples made training about four times faster without changing the algorithm. And evaluating embeddings requires baselines: comparing with the untrained model and with frequency-matched random pairs turned plausible-looking numbers into evidence.
+
+Natural next steps are to train on the full text8 corpus, to measure performance on standard word-similarity and analogy benchmarks, to repeat each configuration with several seeds, and to compare the input vectors with the sum of input and output vectors.
