@@ -348,6 +348,7 @@ class MyWord2Vec:
     def analogy(self, a: str, b: str, c: str, top_k: int = 5):
         """
         Given an analogy query of the form "a is to b as c is to ?", find the top k most likely answers based on cosine similarity.
+        The target vector is b - a + c, so "king - man + woman" is analogy("man", "king", "woman").
         """
 
         vocab = self.vocab
@@ -362,6 +363,8 @@ class MyWord2Vec:
         W_norm = W / norms
 
         target = W_norm[vocab.word2idx[b]] - W_norm[vocab.word2idx[a]] + W_norm[vocab.word2idx[c]]
+        # normalise the target too, so that the scores are cosine similarities in [-1, 1] (the ranking is unchanged)
+        target /= max(np.linalg.norm(target), eps)
 
         sims = W_norm @ target
 
