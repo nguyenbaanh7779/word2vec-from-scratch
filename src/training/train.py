@@ -37,6 +37,9 @@ def train(run_name: str, embed_dim: int = 100, epochs: int = 1, max_window: int 
     random.seed(seed)
     np.random.seed(seed)
 
+    # capture the code version before training, so edits made while a long run is going are not attributed to it
+    git_state = get_git_state()
+
     # load training data and build the vocabulary
     tokens, voc = get_training_data(max_tokens=max_tokens, min_count=min_count, subsample_t=subsample_t)
 
@@ -123,7 +126,7 @@ def train(run_name: str, embed_dim: int = 100, epochs: int = 1, max_window: int 
             "python": platform.python_version(),
             "numpy": np.__version__,
             "platform": platform.platform(),
-            "git": get_git_state(),
+            "git": git_state,
         },
     }
     config_path = run_dir / "config.json"
