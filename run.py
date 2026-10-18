@@ -36,6 +36,14 @@ def train(
           report_every=report_every, seed=seed)
 
 
+@app.command()
+def evaluate(
+    run_name: str = typer.Option(..., help="Name of a finished training run in output/")
+):
+    from evaluation.evaluate import evaluate
+    evaluate(run_name)
+
+
 if __name__ == "__main__":
     app()
     
