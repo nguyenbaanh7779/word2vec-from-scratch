@@ -1,6 +1,5 @@
 name: word2vec-from-scratch
 channels:
-  - defaults
   - conda-forge
 dependencies:
   - python=3.11
@@ -9,3 +8,5 @@ dependencies:
   - pip
   - typer
   - matplotlib
+  - ipykernel
+  - jupyter
