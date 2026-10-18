@@ -9,6 +9,12 @@ sys.path.append(str(SRC))
 
 app = typer.Typer(help="Word2Vec from Scratch - Run Experiments")
 
+@app.callback()
+def main():
+    # with a single command Typer would make it the root command and reject `run.py train ...`;
+    # registering a callback keeps `train` as an explicit subcommand
+    pass
+
 @app.command()
 def train(
     run_name: str = typer.Option(..., help="A name for this training run, used for saving the resulting embeddings"),
