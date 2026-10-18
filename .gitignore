@@ -1,3 +1,26 @@
+# data and generated experiment outputs (embeddings are tens of MB per run)
 /data
+/output/
 
+# Python / Jupyter
 *.pyc
+__pycache__/
+.ipynb_checkpoints/
+
+# macOS
+.DS_Store
+
+# LaTeX build artifacts
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.nav
+*.out
+*.snm
+*.synctex.gz
+*.toc
+*.vrb
+!upstream/jobs/*.log
