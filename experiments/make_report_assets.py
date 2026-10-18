@@ -7,6 +7,7 @@ Usage (after experiments/run_demo.sh and experiments/run_final.sh):
 """
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -21,6 +22,8 @@ from evaluation.evaluate import (GROUP_STYLES, INK, INK_MUTED, N_BASELINE_WORDS,
 
 import matplotlib
 matplotlib.use("Agg")
+# fixed PDF timestamps, so regenerating unchanged figures leaves the files byte-identical
+os.environ.setdefault("SOURCE_DATE_EPOCH", "0")
 import matplotlib.pyplot as plt
 
 FIG_DIR = ROOT / "report" / "figures"
@@ -67,9 +70,9 @@ def write(name: str, text: str) -> None:
 
 # ---- figures ----
 
-def plot_loss_curves(runs: list[dict], out_path: Path) -> None:
+def plot_loss_curves(runs: list[dict], out_path: Path, figsize: tuple[float, float] = (6.4, 3.0)) -> None:
     "Windowed training loss of each run against training progress measured in epochs"
-    fig, ax = plt.subplots(figsize=(6.4, 3.0))
+    fig, ax = plt.subplots(figsize=figsize)
     for run, (color, _) in zip(runs, GROUP_STYLES):
         cfg = run["config"]["hyperparameters"]
         steps_per_epoch = run["steps"][-1] / cfg["epochs"]
@@ -81,7 +84,7 @@ def plot_loss_curves(runs: list[dict], out_path: Path) -> None:
     for boundary in range(1, runs[0]["config"]["hyperparameters"]["epochs"]):
         ax.axvline(boundary, color=INK_MUTED, linewidth=0.8, linestyle=":")
     style_axes(ax)
-    ax.set_xlabel("Training progress (epochs; epochs have approximately equal numbers of steps)", fontsize=9)
+    ax.set_xlabel("Training progress (epochs)", fontsize=9)
     ax.set_ylabel("Mean loss per window", fontsize=9)
     ax.legend(fontsize=8, frameon=False, labelcolor=INK)
     fig.tight_layout()
@@ -241,15 +244,18 @@ def main():
     demo, final = load_run(args.demo_run), load_run(args.final_run)
 
     plot_loss_curves([demo, final], FIG_DIR / "loss_curves.pdf")
+    # smaller canvases for the slides, so that the text stays legible when the figure fills half a slide
+    plot_loss_curves([demo, final], FIG_DIR / "loss_curves_slides.pdf", figsize=(4.4, 2.9))
     model, untrained, _ = load_run_models(args.final_run)
     tokens = f"{final['config']['hyperparameters']['max_tokens'] / 1e6:.0f}M tokens"
     plot_pca({f"Trained ({tokens})": model, "Untrained (initialisation)": untrained}, FIG_DIR / "pca_final.pdf")
+    plot_pca({f"Trained ({tokens})": model}, FIG_DIR / "pca_final_trained.pdf", panel_size=(3.8, 3.3))
 
     write("macros.tex", macros({"demo": demo, "final": final}))
     write("hyperparameters.tex", hyperparameter_table(demo, final))
     write("runs.tex", runs_table(demo, final))
     write("neighbours.tex", neighbours_table(final, top_trained=8, top_untrained=3))
-    write("neighbours_short.tex", neighbours_table(final, top_trained=5, top_untrained=0))
+    write("neighbours_short.tex", neighbours_table(final, top_trained=4, top_untrained=0))
     write("cosine.tex", cosine_table(demo, final))
     write("analogies.tex", analogy_table(demo, final))
     write("analogies_short.tex", analogy_table(demo, final, with_answers=False))

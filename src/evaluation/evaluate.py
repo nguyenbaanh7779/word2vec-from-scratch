@@ -140,12 +140,12 @@ def style_axes(ax) -> None:
     ax.set_axisbelow(True)
 
 
-def plot_pca(models: dict[str, MyWord2Vec], out_path) -> None:
+def plot_pca(models: dict[str, MyWord2Vec], out_path, panel_size: tuple[float, float] = (5.2, 4.4)) -> None:
     """
     2D PCA of the PCA_GROUPS words, one panel per model.
     Vectors are L2-normalised (as for cosine similarity) and centred on the plotted words before the SVD.
     """
-    fig, axes = plt.subplots(1, len(models), figsize=(5.2 * len(models), 4.4))
+    fig, axes = plt.subplots(1, len(models), figsize=(panel_size[0] * len(models), panel_size[1]))
     panels = []
     for ax, (title, model) in zip(np.atleast_1d(axes), models.items()):
         vocab = model.vocab.word2idx

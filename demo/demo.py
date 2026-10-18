@@ -61,7 +61,7 @@ class Demo:
             idx = self.model.vocab.word2idx
             cos = float(self.W[idx[a]] @ self.W[idx[b]])
             pct = 100 * np.searchsorted(self.baseline, cos) / len(self.baseline)
-            print(f"  cos({a}, {b}) = {cos:.3f}: more similar than {pct:.0f}% of random pairs of frequent words")
+            print(f"  cos({a}, {b}) = {cos:.3f}: more similar than {pct:.1f}% of random pairs of frequent words")
 
     def analogy(self, positive: str, negative: str, other: str) -> None:
         # positive - negative + other, i.e. "negative is to positive as other is to ?"
