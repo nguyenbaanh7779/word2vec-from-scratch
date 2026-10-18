@@ -1,16 +1,29 @@
+import json
+import platform
 import random
+import subprocess
+import time
 
 import numpy as np
 
 from dataset.training import get_training_data
 from utils import build_noise_distribution
 from model.word2vec import MyWord2Vec
-from config import OUTPUT_DIR
+from config import OUTPUT_DIR, PROJECT_ROOT
 
 import matplotlib
 matplotlib.use("Agg")  # headless backend for servers
 import matplotlib.pyplot as plt
   
+
+def get_git_state() -> dict:
+    "Commit of the code used for a run, and whether tracked files had uncommitted changes"
+    try:
+        def git(*args): return subprocess.run(["git", *args], cwd=PROJECT_ROOT, capture_output=True, text=True, check=True).stdout.strip()
+        return {"commit": git("rev-parse", "HEAD"), "dirty": bool(git("status", "--porcelain", "--untracked-files=no"))}
+    except (OSError, subprocess.CalledProcessError):
+        return {"commit": None, "dirty": None}
+
 
 def train(run_name: str, embed_dim: int = 100, epochs: int = 1, max_window: int = 5, n_negatives: int = 5, max_tokens: int | None = 1_000_000,
           min_count: int = 5, subsample_t: float = 1e-3, start_lr: float = 0.025, lr_min: float = 1e-4, seed: int = 42):
@@ -39,6 +52,7 @@ def train(run_name: str, embed_dim: int = 100, epochs: int = 1, max_window: int 
     )
 
     # train the model
+    t0 = time.time()
     loss_history = model.train(
         train_tokens = tokens,
         noise_dist = noise_dist,
@@ -46,6 +60,7 @@ def train(run_name: str, embed_dim: int = 100, epochs: int = 1, max_window: int 
         epochs = epochs,
         lr_min = lr_min
     )
+    train_time = time.time() - t0
 
     # save the resulting embeddings
     output_file = run_dir / f"embeddings_{run_name}.npz"
@@ -75,3 +90,38 @@ def train(run_name: str, embed_dim: int = 100, epochs: int = 1, max_window: int 
 
         print(f"Saved loss data to {loss_data_path}")
         print(f"Saved loss plot to {loss_plot_path}")
+
+    # record everything needed to reproduce and report this run
+    config = {
+        "run_name": run_name,
+        "hyperparameters": {
+            "max_tokens": max_tokens,
+            "min_count": min_count,
+            "subsample_t": subsample_t,
+            "embed_dim": embed_dim,
+            "epochs": epochs,
+            "max_window": max_window,
+            "n_negatives": n_negatives,
+            "noise_power": 0.75,
+            "start_lr": start_lr,
+            "lr_min": lr_min,
+            "seed": seed,
+        },
+        "data": {
+            "vocab_size": len(voc),
+            "tokens_after_subsampling": len(tokens),
+        },
+        "results": {
+            "train_time_s": round(train_time, 2),
+            "loss_history": [[int(step), float(loss)] for step, loss in loss_history],
+        },
+        "environment": {
+            "python": platform.python_version(),
+            "numpy": np.__version__,
+            "platform": platform.platform(),
+            "git": get_git_state(),
+        },
+    }
+    config_path = run_dir / "config.json"
+    config_path.write_text(json.dumps(config, indent=2))
+    print(f"Saved run config to {config_path}")
