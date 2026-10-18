@@ -1,0 +1,318 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+
+\usepackage{fontspec}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{graphicx}
+\usepackage{tikz}
+\usetikzlibrary{positioning,arrows.meta,calc,fit,decorations.pathreplacing}
+\graphicspath{{../report/figures/}}
+
+% Numbers generated from the experiment outputs (shared with the report)
+\input{../report/generated/macros}
+
+% ---- Theme: plain layout, colours matching the figures ----
+\usetheme{default}
+\definecolor{accent}{HTML}{2A78D6}
+\definecolor{accentB}{HTML}{EB6834}
+\definecolor{ink}{HTML}{0B0B0B}
+\definecolor{muted}{HTML}{52514E}
+\setbeamercolor{normal text}{fg=ink}
+\setbeamercolor{frametitle}{fg=accent}
+\setbeamercolor{title}{fg=accent}
+\setbeamercolor{structure}{fg=accent}
+\setbeamercolor{block title}{fg=white, bg=accent}
+\setbeamercolor{block body}{bg=accent!6}
+\setbeamerfont{frametitle}{series=\bfseries, size=\Large}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{itemize items}[circle]
+\setbeamertemplate{blocks}[rounded]
+\setbeamertemplate{footline}{%
+    \hspace{4mm}{\scriptsize\color{muted}Word2Vec from scratch}\hfill
+    {\scriptsize\color{muted}\insertframenumber}\hspace{4mm}\vspace{3mm}}
+
+\newcommand{\muted}[1]{\textcolor{muted}{#1}}
+\newcommand{\hl}[1]{\textcolor{accent}{\textbf{#1}}}
+
+\title{Learning Word Embeddings from Scratch}
+\subtitle{Skip-gram with Negative Sampling on the text8 Corpus}
+
+\begin{document}
+
+% ---------------------------------------------------------------- 1
+\begin{frame}[plain]
+    \vfill
+    \centering
+    {\usebeamercolor[fg]{title}\huge\bfseries\inserttitle\par}
+    \vspace{3mm}
+    {\large\insertsubtitle\par}
+    \vspace{8mm}
+    {\color{muted}Natural Language Processing --- Project Presentation\par}
+    \vspace{8mm}
+    \begin{tabular}{rl}
+        Nguyễn Bá Anh & 20261218M \\
+        Nguyễn Thị Nhã Linh & 20261262M \\[2mm]
+        \muted{Instructor:} & Nguyễn Kiêm Hiếu \\
+    \end{tabular}
+    \vfill
+\end{frame}
+
+% ---------------------------------------------------------------- 2
+\begin{frame}{Motivation: words need numbers}
+    \begin{columns}[T]
+        \begin{column}{0.48\textwidth}
+            \textbf{One-hot vectors}
+            \[
+                \textit{king} = [0, \dots, 0, 1, 0, \dots, 0] \in \mathbb{R}^{V}
+            \]
+            \begin{itemize}
+                \item as long as the vocabulary ($V \approx$ \FinalVocab{} here)
+                \item every pair of words is orthogonal:\\
+                      \textit{king} is as far from \textit{queen} as from \textit{carrot}
+            \end{itemize}
+        \end{column}
+        \begin{column}{0.48\textwidth}
+            \textbf{Word embeddings}
+            \[
+                \textit{king} \mapsto \mathbf{v}_{\textit{king}} \in \mathbb{R}^{100}
+            \]
+            \begin{itemize}
+                \item dense, learned from text
+                \item words used in similar contexts get similar vectors
+            \end{itemize}
+            \vspace{2mm}
+            \muted{\small ``You shall know a word by the company it keeps.'' --- Firth (1957)}
+        \end{column}
+    \end{columns}
+    \vfill
+    \begin{block}{Question}
+        How can a model learn useful numerical representations of words from their surrounding context?
+    \end{block}
+\end{frame}
+
+% ---------------------------------------------------------------- 3
+\begin{frame}{What is Word2Vec?}
+    \begin{itemize}
+        \item A shallow model with two embedding matrices \muted{(Mikolov et al., 2013a)}
+        \begin{itemize}
+            \item $W_{\text{in}}$: one vector $\mathbf{v}_w$ per word as a \hl{centre} word \quad $\leftarrow$ the embeddings we keep
+            \item $W_{\text{out}}$: one vector $\mathbf{v}'_w$ per word as a \hl{context} word
+        \end{itemize}
+        \item Two architectures: \textbf{CBOW} predicts the centre word from its context;
+              \textbf{Skip-gram} predicts each context word from the centre word
+    \end{itemize}
+    \vspace{3mm}
+    Skip-gram with a full softmax:
+    \[
+        p(o \mid c) = \frac{\exp(\mathbf{v}'_o \cdot \mathbf{v}_c)}{\sum_{w=1}^{V} \exp(\mathbf{v}'_w \cdot \mathbf{v}_c)}
+    \]
+    \begin{center}
+        \muted{The denominator sums over all $V$ words, for every one of the \FinalStepsMillions{} training pairs.}
+    \end{center}
+\end{frame}
+
+% ---------------------------------------------------------------- 4
+\begin{frame}{Skip-gram: training pairs from a context window}
+    \begin{center}
+        \resizebox{0.82\textwidth}{!}{\input{../report/figures/tikz_skipgram}}
+    \end{center}
+    \vspace{1mm}
+    \begin{itemize}
+        \item Window size drawn at random, $W \sim U\{1, \dots, 5\}$: nearby words count more
+        \item About 6 positive pairs per centre word
+    \end{itemize}
+\end{frame}
+
+% ---------------------------------------------------------------- 5
+\begin{frame}{Negative sampling: a binary task instead of a softmax}
+    \muted{Mikolov et al. (2013b)}: tell the true pair apart from $K$ random pairs
+    \[
+        \underbrace{\log \sigma(\mathbf{v}'_o \cdot \mathbf{v}_c)}_{\text{pull the true context closer}}
+        \; + \;
+        \underbrace{\sum_{k=1}^{K} \log \sigma(-\mathbf{v}'_{n_k} \cdot \mathbf{v}_c)}_{\text{push random words away}},
+        \qquad n_k \sim P_n(w) \propto f(w)^{3/4}
+    \]
+    \begin{itemize}
+        \item Cost per pair: $O(K)$ with $K = 5$, instead of $O(V)$
+        \item The exponent $3/4$ samples rare words more often than their raw frequency
+        \item \textbf{Subsampling}: drop occurrences of very frequent words (\textit{the}, \textit{of}) with probability $1 - \sqrt{t / f(w)}$
+    \end{itemize}
+\end{frame}
+
+% ---------------------------------------------------------------- 6
+\begin{frame}{Implementation}
+    \begin{center}
+        \resizebox{\textwidth}{!}{\input{../report/figures/tikz_pipeline}}
+    \end{center}
+    \small
+    \muted{NumPy SGNS from the open-source repository of Caselli (2026). Our additions:}
+    \vspace{1mm}
+    \begin{columns}[T]
+        \begin{column}{0.32\textwidth}
+            \textbf{Reproducible runs}\\
+            seed, every hyperparameter on the CLI, \texttt{config.json} per run; fixed the documented command
+        \end{column}
+        \begin{column}{0.32\textwidth}
+            \textbf{4$\times$ faster training}\\
+            negatives drawn in batches from the same distribution: 1,023\,s $\to$ 251\,s on 1M tokens, same losses
+        \end{column}
+        \begin{column}{0.32\textwidth}
+            \textbf{Evaluation protocol}\\
+            queries fixed in advance, untrained baseline, frequency-matched cosine percentiles
+        \end{column}
+    \end{columns}
+\end{frame}
+
+% ---------------------------------------------------------------- 7
+\begin{frame}{Results: training loss and nearest neighbours}
+    \begin{columns}[T]
+        \begin{column}{0.46\textwidth}
+            \includegraphics[width=\linewidth]{loss_curves_slides.pdf}
+            \small
+            \begin{itemize}
+                \item Falls early in epoch 1, then flat
+                \item Epoch means \FinalLossEpochOne{} $\to$ \FinalLossEpochTwo{} $\to$ \FinalLossEpochThree\\
+                      $\Rightarrow$ loss is \hl{not} a quality measure
+            \end{itemize}
+        \end{column}
+        \begin{column}{0.52\textwidth}
+            \resizebox{\linewidth}{!}{\input{../report/generated/neighbours_short}}
+            \vspace{2mm}
+
+            \small Final run (\FinalTokensShort{} tokens); queries fixed in advance.\\
+            \muted{Untrained model: \textit{king} $\to$ \textit{marpat, verbally, brando}}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+% ---------------------------------------------------------------- 8
+\begin{frame}[fragile]{Live demo: similarity, analogies, visualisation}
+    \begin{columns}[T]
+        \begin{column}{0.5\textwidth}
+            \texttt{\$ python demo/demo.py}
+            \vspace{2mm}
+            \footnotesize
+\begin{verbatim}
+> king queen
+  0.699: more similar than 99.7%
+         of random frequent-word pairs
+> king software
+  0.123: more similar than 5.0%
+
+> bigger - big + small
+  smaller  parking  forested
+> king - man + woman
+  daughter  caligula  amalric
+\end{verbatim}
+            \small
+            Analogies: \hl{\FinalHitOne/\FinalAnswerable} exact, \FinalHitFive/\FinalAnswerable{} in top 5\\
+            \muted{(1M tokens: \DemoHitOne{} and \DemoHitFive; untrained: 0)}
+        \end{column}
+        \begin{column}{0.48\textwidth}
+            \includegraphics[width=\linewidth]{pca_final_trained.pdf}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+% ---------------------------------------------------------------- 9
+\begin{frame}{Conclusion}
+    \small
+    \begin{tabular}{@{}l>{\raggedright\arraybackslash}p{0.72\textwidth}@{}}
+        \toprule
+        \textbf{Q1} Loss & drops early, then flat; says little about embedding quality \\
+        \textbf{Q2} Neighbours & \hl{yes}: months, numbers, countries, genres cluster \\
+        \textbf{Q3} Similarity & \hl{yes}, against the right baseline: related pairs $\geq$ p\FinalRelatedPctMin, controls $\leq$ p\FinalControlPctMax \\
+        \textbf{Q4} Analogies & \hl{partly}: \FinalHitOne/\FinalAnswerable{} exact; \textit{king} $-$ \textit{man} $+$ \textit{woman} $\not\to$ \textit{queen} \\
+        \textbf{Q5} Space & \hl{yes}: four word groups form separate clusters in 2D \\
+        \bottomrule
+    \end{tabular}
+    \vspace{5mm}
+    \begin{columns}[T]
+        \begin{column}{0.48\textwidth}
+            \textbf{Limitations}
+            \begin{itemize}
+                \item 5M tokens, a prefix of Wikipedia
+                \item rare words barely trained
+                \item one vector per word (\textit{bank})
+                \item small fixed evaluation, one seed
+            \end{itemize}
+        \end{column}
+        \begin{column}{0.48\textwidth}
+            \textbf{Applications}
+            \begin{itemize}
+                \item input features for text classifiers
+                \item similarity search, query expansion
+                \item exploring how a corpus uses words
+            \end{itemize}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+% ================================================================ backup
+\begin{frame}[plain]
+    \vfill
+    \centering
+    {\usebeamercolor[fg]{title}\LARGE\bfseries Backup slides\par}
+    \vfill
+\end{frame}
+
+\begin{frame}{Backup: runs and hyperparameters}
+    \begin{columns}[T]
+        \begin{column}{0.42\textwidth}
+            \resizebox{\linewidth}{!}{\input{../report/generated/runs}}
+        \end{column}
+        \begin{column}{0.56\textwidth}
+            \resizebox{\linewidth}{!}{\input{../report/generated/hyperparameters}}
+        \end{column}
+    \end{columns}
+    \vspace{3mm}
+    \small Apple M5, one core, Python \FinalPython, NumPy \FinalNumpy. Same arguments $\Rightarrow$ identical embeddings.
+\end{frame}
+
+\begin{frame}{Backup: cosine similarity needs a baseline}
+    \begin{columns}[T]
+        \begin{column}{0.55\textwidth}
+            \resizebox{\linewidth}{!}{\input{../report/generated/cosine}}
+        \end{column}
+        \begin{column}{0.42\textwidth}
+            \small
+            \begin{itemize}
+                \item pN: more similar than N\% of random pairs among the \BaselineWords{} most frequent words
+                \item Random frequent pairs average \DemoBaselineMean{} (1M) and \FinalBaselineMean{} (5M)
+                \item Over the whole vocabulary: \FinalBaselineAllMean{}, because rare words stay near a shared direction
+                \item Baseline changed to frequent words \hl{after} the first demo evaluation; queries unchanged
+            \end{itemize}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+\begin{frame}{Backup: all fixed analogies}
+    \centering
+    \resizebox{0.95\textwidth}{!}{\input{../report/generated/analogies}}
+    \vspace{3mm}
+
+    \small Expected answer $\approx \mathbf{v}_b - \mathbf{v}_a + \mathbf{v}_c$, excluding $a$, $b$, $c$; rank among the ten best candidates.
+\end{frame}
+
+\begin{frame}{Backup: embedding space before and after training}
+    \centering
+    \includegraphics[width=0.95\textwidth]{pca_final.pdf}
+\end{frame}
+
+\begin{frame}{References}
+    \footnotesize
+    \begin{itemize}
+        \item N.~Caselli (2026). \textit{word2vec-from-scratch}. GitHub repository, \texttt{github.com/NiccoloCase/word2vec-from-scratch}.
+        \item J.~R.~Firth (1957). A synopsis of linguistic theory, 1930--1955. \textit{Studies in Linguistic Analysis}.
+        \item Y.~Goldberg, O.~Levy (2014). word2vec explained. arXiv:1402.3722.
+        \item Z.~S.~Harris (1954). Distributional structure. \textit{Word} 10(2--3).
+        \item M.~Mahoney. About the test data (text8). \texttt{mattmahoney.net/dc/textdata.html}.
+        \item T.~Mikolov, K.~Chen, G.~Corrado, J.~Dean (2013a). Efficient estimation of word representations in vector space. arXiv:1301.3781.
+        \item T.~Mikolov, I.~Sutskever, K.~Chen, G.~Corrado, J.~Dean (2013b). Distributed representations of words and phrases and their compositionality. \textit{NeurIPS}.
+        \item T.~Mikolov, W.~Yih, G.~Zweig (2013c). Linguistic regularities in continuous space word representations. \textit{NAACL-HLT}.
+        \item J.~Mu, P.~Viswanath (2018). All-but-the-top: simple and effective postprocessing for word representations. \textit{ICLR}.
+    \end{itemize}
+\end{frame}
+
+\end{document}
